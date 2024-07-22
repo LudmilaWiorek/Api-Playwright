@@ -1,194 +1,170 @@
-import { test, expect } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { ApiPage } from '../../page-object-4-API/APIPage'
+import {
+  CreateUserModel,
+  RegisterUserModel,
+} from '../../interface/APIinterface.model'
 
 test.describe.parallel('Api testing', () => {
-  const baseUrl = 'https://reqres.in/api'
+  let apiClass: ApiPage
+  test.beforeEach('create apiClass for all tests', ({ request }) => {
+    apiClass = new ApiPage(request)
+  })
 
-  test('Simple API test - Assert response status', async ({ request }) => {
-    const response = await request.get(`${baseUrl}/users/2`)
-    expect(response.status()).toBe(200)
-
-    const responseBody = JSON.parse(await response.text())
-    console.log(responseBody.data)
+  test('Simple API test - Assert response status', async () => {
+    const responseBody = await apiClass.getUserById(2, 200)
+    // expect(response.status()).toBe(200); // this functionality packed in method of class
     expect(responseBody.data.first_name).toBe('Janet')
   })
 
-  test('Second test Api - Assert invalid endpoint', async ({ request }) => {
-    const response = await request.get(`${baseUrl}/users/wpiszcokolwiek`)
+  test('Second test Api - Assert invalid endpoint', async () => {
+    //we check if we got status 404 when request to wrong endpoint (web)
+    const response = await apiClass.getFailedEndpoint()
     expect(response.status()).toBe(404)
   })
 
   //typical GET request API test:
-  test('GET request - GET User detail', async ({ request }) => {
-    const response = await request.get(`${baseUrl}/users/1`)
-    const responseBody = JSON.parse(await response.text())
-    expect(response.status()).toBe(200)
-    expect(responseBody.data.id).toBe(1)
-    console.log('id =', responseBody.data.id)
-    expect(responseBody.data.first_name).toBe('George')
-    console.log('first name =', responseBody.data.first_name)
-    expect(responseBody.data.last_name).toBe('Bluth')
-    console.log('last name =', responseBody.data.last_name)
-    expect(responseBody.data.email).toBeTruthy()
+  test('GET request - GET User detail', async () => {
+    // we do the same as in the first test, we use the same method
+    // of our class; status we check in method!
+    const userDataResponseBody = await apiClass.getUserById(1, 200)
+    expect(userDataResponseBody.data.id).toBe(1)
+    expect(userDataResponseBody.data.first_name).toBe('George')
+    expect(userDataResponseBody.data.last_name).toBe('Bluth')
+    expect(userDataResponseBody.data.email).toBeTruthy()
+    // don't make assertion toBeTruthy
   })
 
-  test('GET request - List users', async ({ request }) => {
-    const response = await request.get(`${baseUrl}/users?page=2`)
-    const responseBody = JSON.parse(await response.text())
-    expect(response.status()).toBe(200)
-    expect(responseBody.page).toBe(2)
-    console.log(responseBody.per_page)
+  test('GET request - List users', async () => {
+    const userListResponseBody = await apiClass.getUserList(2)
+    expect(userListResponseBody.page).toBe(2)
+    expect(userListResponseBody.data[2].last_name).toBe('Funke')
   })
 
-  test('GET request - Single user not found', async ({ request }) => {
-    const response = await request.get(`${baseUrl}/users/23`)
-    const responseBody = JSON.parse(await response.text())
-    expect(response.status()).toBe(404)
-    expect(responseBody).toBeTruthy()
+  test('GET request - Single user not found', async () => {
+    const response = await apiClass.getUserById(23, 404)
+    expect(response).toBeTruthy()
+  })
+
+  test('GET request - List resource', async () => {
+    const listResourceBody = await apiClass.getListResource()
+    expect(listResourceBody.total).toBe(12)
+    // I check number of elements because the rule says when I add a resource for a test,
+    // I delete it after (if database works as it should)
+  })
+
+  test('GET request - Single resource', async () => {
+    const singleResourceBody = await apiClass.getResourceById(2, 200)
+    expect(singleResourceBody.data.name).toBe('fuchsia rose')
+  })
+
+  test('GET request - Single resource not found', async () => {
+    const singleResourceBody = await apiClass.getResourceById(23, 404)
+    expect(singleResourceBody).toBeTruthy()
+  })
+
+  test('GET Request - Delayed response', async () => {
+    const delayedResponse = await apiClass.getDelayedResponse(3)
+    expect(delayedResponse.data[0].first_name).toBe('George')
+    // make worthful assertions!!!
+  })
+
+  //TESTS POST
+  test('POST Request - Create user', async () => {
+    // here should be confirmation that the number of users is <number>
+    const newUser: CreateUserModel = {
+      name: 'Samsung',
+      job: 's8',
+    }
+    const postResponse = await apiClass.createUser(newUser)
+    console.log(postResponse)
+    // check if createdAt works when parameter in interface is optional
+    expect(postResponse.id).toBeTruthy()
+    expect(postResponse.name).toBe('Samsung')
+    expect(postResponse.createdAt).toBeTruthy()
+    // here we check if <number> of users changed!
+  })
+
+  test('POST Request - Register successful', async () => {
+    const newUser: RegisterUserModel = {
+      email: 'eve.holt@reqres.in',
+      password: 'pistol',
+    }
+    const postResponse = await apiClass.registerNewUser(newUser, 200)
+    console.log(postResponse)
+    console.log(typeof postResponse)
+    expect(postResponse.id).toBeTruthy()
+    expect(postResponse.token).toBe('QpwL5tke4Pnpja7X4')
+  })
+
+  test('POST Request - Register unsuccessful', async () => {
+    const newUser: RegisterUserModel = {
+      email: 'sydney@fife',
+    }
+    const postResponse = await apiClass.registerNewUser(newUser, 400)
+    console.log(postResponse)
+    expect(postResponse.error).toBe('Missing password')
+  })
+
+  test('POST Request - Login successful', async () => {
+    const user: RegisterUserModel = {
+      email: 'eve.holt@reqres.in',
+      password: 'cityslicka',
+    }
+    const postResponse = await apiClass.loginUser(user, 200)
+    console.log(postResponse)
+    expect(postResponse.token).toBe('QpwL5tke4Pnpja7X4')
+  })
+
+  test('POST Request - Login fail', async () => {
+    const user: RegisterUserModel = {
+      email: 'eve.holt@reqres.in',
+    }
+    const postResponse = await apiClass.loginUser(user, 400)
+    console.log(postResponse)
+    expect(postResponse.error).toBe('Missing password')
+  })
+
+  //TEST PATCH - specifies only changes unlike Put which replaces entire resource
+  test('PATCH request - Update', async () => {
+    const patchedUserData: CreateUserModel = {
+      name: 'morpheus',
+      job: 'zion resident',
+    }
+    console.log(patchedUserData)
+    const postResponse = await apiClass.patchUserData(2, patchedUserData)
+    console.log(postResponse)
+
+    //we check in assertion if updatedAt parameter is actual
+    let date = new Date()
+    let responseDate = new Date(postResponse.updatedAt)
+    // in interface CreateUserModel option updateAt is optional :)
+
+    let timeDifference = date.getTime() - responseDate.getTime()
+    expect(timeDifference).toBeLessThan(5000)
+  })
+
+  //TEST PUT - replaces entire resource
+  test('PUT request - Update user', async () => {
+    const putUserData: CreateUserModel = {
+      name: 'sth',
+      job: 'sth different',
+    }
+    const putResponse = await apiClass.putUserData(2, putUserData)
+    expect(putResponse.updatedAt).toBeTruthy()
+  })
+
+  //TESTS DELETE
+  test('DELETE request', async () => {
+    await apiClass.deleteUser(2, 204)
+    // no assertion ;|
+  })
+
+  test('DELETE AND CHECK', async () => {
+    let responseBody = await apiClass.getUserById(2, 200)
+    expect(responseBody.data.id).toBe(2)
     console.log(responseBody)
-  })
-
-  test('GET request - List resource', async ({ request }) => {
-    const response = await request.get(`${baseUrl}/unknown`)
-    const responseBody = JSON.parse(await response.text())
-    expect(response.status()).toBe(200)
-    expect(responseBody).toBeTruthy()
-    console.log(responseBody)
-  })
-
-  test('GET request - Single resource', async ({ request }) => {
-    const response = await request.get(`${baseUrl}/unknown/2`)
-    const responseBody = JSON.parse(await response.text())
-    expect(response.status()).toBe(200)
-    expect(responseBody).toBeTruthy()
-    console.log(responseBody.data.id)
-  })
-
-  test('GET request - Single resource not found', async ({ request }) => {
-    const response = await request.get(`${baseUrl}/unknown/23`)
-    const responseBody = JSON.parse(await response.text())
-    expect(response.status()).toBe(404)
-    expect(responseBody).toBeTruthy()
-    console.log(responseBody)
-  })
-
-  test('GET Request - Delayed response', async ({ request }) => {
-    const response = await request.get(`${baseUrl}/users?delay=3`)
-    const responseBody = JSON.parse(await response.text())
-    expect(response.status()).toBe(200)
-    expect(responseBody).toBeTruthy()
-    console.log(responseBody.page)
-  })
-
-  //tests POST
-  test('POST Request - Create user', async ({ request }) => {
-    const response = await request.post(`${baseUrl}/users`, {
-      data: {
-        name: 'Samsung',
-        job: 's8',
-      },
-    })
-    const responseBody = JSON.parse(await response.text())
-    console.log(responseBody)
-    console.log(response.status())
-    expect(responseBody.id).toBeTruthy()
-    expect(responseBody.name).toBe('Samsung')
-    expect(responseBody.createdAt).toBeTruthy()
-  })
-
-  test('POST Request - Register successful', async ({ request }) => {
-    const response = await request.post(`${baseUrl}/register`, {
-      data: {
-        email: 'eve.holt@reqres.in',
-        password: 'pistol',
-      },
-    })
-    const responseBody = JSON.parse(await response.text())
-    expect(response.status()).toBe(200)
-    console.log(responseBody)
-  })
-
-  test('POST Request - Register unsuccessful', async ({ request }) => {
-    const response = await request.post(`${baseUrl}/register`, {
-      data: {
-        password: 'pistol',
-      },
-    })
-    const responseBody = JSON.parse(await response.text())
-    expect(response.status()).toBe(400)
-    console.log(responseBody)
-  })
-
-  test('POST Request - Login successful', async ({ request }) => {
-    const response = await request.post(`${baseUrl}/login`, {
-      data: {
-        email: 'eve.holt@reqres.in',
-        password: 'cityslicka',
-      },
-    })
-    const responseBody = JSON.parse(await response.text())
-    console.log(responseBody)
-    console.log(response.status())
-    expect(response.status()).toBe(200)
-    expect(responseBody.token).toBeTruthy()
-  })
-
-  test('POST Request - Login fail', async ({ request }) => {
-    const response = await request.post(`${baseUrl}/login`, {
-      data: {
-        email: 'eve.holt@reqres.in',
-      },
-    })
-    const responseBody = JSON.parse(await response.text())
-    expect(response.status()).toBe(400)
-    expect(responseBody.error).toBeTruthy()
-    console.log(responseBody)
-  })
-
-  //test PATCH - OKRESLA TYLKO ZMIANY w przeciwieństwie do PUT, ktore zastępuje cały zasób
-  test('PATCH request - Update', async ({ request }) => {
-    const response = await request.patch(`${baseUrl}/users/2`, {
-      data: {
-        name: 'morpheus',
-        job: 'zion resident',
-      },
-    })
-    const responseBody = JSON.parse(await response.text())
-    expect(response.status()).toBe(200)
-    expect(responseBody.job).toBe('zion resident')
-    console.log(responseBody.updatedAt)
-  })
-
-  //TEST PUT - zastępuje cały zasób
-  test('PUT request - Update user', async ({ request }) => {
-    const response = await request.put(`${baseUrl}/users/2`, {
-      data: {
-        name: 'Ludka',
-        job: 'Tester Automatyzujący',
-      },
-    })
-    const responseBody = JSON.parse(await response.text())
-
-    expect(response.status()).toBe(200)
-    expect(responseBody.name).toBe('Ludka')
-    expect(responseBody.job).toBe('Tester Automatyzujący')
-    expect(responseBody.updatedAt).toBeTruthy()
-    console.log(responseBody.name)
-    console.log(responseBody.job)
-  })
-
-  //test DELETE
-  test('DELETE request', async ({ request }) => {
-    const response = await request.delete(`${baseUrl}/users/2`)
-    expect(response.status()).toBe(204) //kod 204 - brak zawartości
-  })
-
-  test('DELETE AND CHECK', async ({ request }) => {
-    const responseGet = await request.get(`${baseUrl}/users/2`)
-    expect(responseGet.status()).toBe(200)
-
-    const responseDelete = await request.delete(`${baseUrl}/users/2`)
-    expect(responseDelete.status()).toBe(204)
-
-    const responseGet2 = await request.get(`${baseUrl}/users/2`) //uwaga na zmianę nazwy const!
+    await apiClass.deleteUser(2, 204)
+    responseBody = await apiClass.getUserById(2, 200) // code response should be 404! NOT 200
   })
 })
