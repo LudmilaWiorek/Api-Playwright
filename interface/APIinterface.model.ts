@@ -61,3 +61,7 @@ export interface RegisterUserModel {
   token?: string
   error?: string
 }
+
+export interface ErrorResponseModel {
+  error: string
+}

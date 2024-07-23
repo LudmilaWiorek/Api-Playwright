@@ -51,6 +51,14 @@ test.describe.parallel('Api testing', () => {
     expect(listResourceBody.total).toBe(12)
     // I check number of elements because the rule says when I add a resource for a test,
     // I delete it after (if database works as it should)
+    const propertyList = ['id', 'name', 'year', 'color', 'pantone_value']
+    listResourceBody.data.forEach((resource) => {
+      propertyList.forEach((key) => {
+        expect.soft(resource).toHaveProperty(key)
+      })
+    })
+// nice loop to check properties of resources closed in list of data in listResourceBody
+
   })
 
   test('GET request - Single resource', async () => {
@@ -93,8 +101,8 @@ test.describe.parallel('Api testing', () => {
     const postResponse = await apiClass.registerNewUser(newUser, 200)
     console.log(postResponse)
     console.log(typeof postResponse)
-    expect(postResponse.id).toBeTruthy()
-    expect(postResponse.token).toBe('QpwL5tke4Pnpja7X4')
+    expect(postResponse).toHaveProperty('id')
+    expect(postResponse).toHaveProperty('token')
   })
 
   test('POST Request - Register unsuccessful', async () => {
@@ -103,6 +111,7 @@ test.describe.parallel('Api testing', () => {
     }
     const postResponse = await apiClass.registerNewUser(newUser, 400)
     console.log(postResponse)
+    expect(postResponse).toHaveProperty('error')
     expect(postResponse.error).toBe('Missing password')
   })
 

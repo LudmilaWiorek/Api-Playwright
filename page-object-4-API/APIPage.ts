@@ -6,6 +6,7 @@ import {
   CreateUserModel,
   RegisterUserModel,
   UserModel,
+  ErrorResponseModel
 } from '../interface/APIinterface.model'
 
 export class ApiPage {
@@ -16,12 +17,13 @@ export class ApiPage {
     this.request = request
   }
 
-  async getUserById(id: number, expectedStatus: number): Promise<UserModel> {
+  async getUserById(id: number, expectedStatus: number): Promise<UserModel | ErrorResponseModel> {
     const response = await this.request.get(`${this.baseUrl}/users/${id}`)
 
     if (response.status() != expectedStatus)
       throw `Response status is not ${expectedStatus}`
     const responseJSON = JSON.parse(await response.text())
+    if (response.status() >= 400) return responseJSON as ErrorResponseModel
     return responseJSON as UserModel
   }
 
@@ -83,7 +85,7 @@ export class ApiPage {
   async registerNewUser(
     newUser: RegisterUserModel,
     expectedStatus: number,
-  ): Promise<RegisterUserModel> {
+  ): Promise<RegisterUserModel | ErrorResponseModel> {
     const response = await this.request.post(`${this.baseUrl}/register`, {
       data: newUser,
     })
@@ -91,21 +93,21 @@ export class ApiPage {
     if (response.status() != expectedStatus)
       throw `Response status not ${expectedStatus}`
     const responseJSON = JSON.parse(await response.text())
-
+    if (response.status() >= 400) return responseJSON as ErrorResponseModel
     return responseJSON as RegisterUserModel
   }
 
   async loginUser(
     user: RegisterUserModel,
     expectedStatus: number,
-  ): Promise<RegisterUserModel> {
+  ): Promise<RegisterUserModel | ErrorResponseModel> {
     const response = await this.request.post(`${this.baseUrl}/login`, {
       data: user,
     })
     if (response.status() != expectedStatus)
       throw `Response status not ${expectedStatus}`
     const responseJSON = JSON.parse(await response.text())
-
+    if (response.status() >= 400) return responseJSON as ErrorResponseModel
     return responseJSON as RegisterUserModel
   }
 
